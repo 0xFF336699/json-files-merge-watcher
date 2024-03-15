@@ -1,0 +1,27 @@
+{
+  "folders": [
+    "C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales"
+  ],
+  "list": [
+    {
+      "suffix": ".json",
+      "output": "C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales\\zh-CN.json",
+      "watchList": [
+        {
+          "files": [],
+          "folders": ["C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales\\zh-CN"]
+        }
+      ]
+    },
+    {
+      "suffix": ".json",
+      "output": "C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales\\en.json",
+      "watchList": [
+        {
+          "files": [],
+          "folders": ["C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales\\en"]
+        }
+      ]
+    }
+  ]
+}
