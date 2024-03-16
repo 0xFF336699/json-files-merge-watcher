@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"github.com/fsnotify/fsnotify"
@@ -10,6 +11,7 @@ import (
 	"path"
 	"reflect"
 	"strings"
+	"time"
 )
 
 type WatchList struct {
@@ -17,41 +19,125 @@ type WatchList struct {
 	Folders []string
 }
 type WatchData struct {
+	Name      string
 	Output    string
 	Suffix    string
 	WatchList []*WatchList
+	finish    chan bool
+	index     int
+	terminted bool
+	timer     *time.Timer
+	watcher   *fsnotify.Watcher
+}
+
+func (d *WatchData) later() {
+	t := d.timer
+	if t != nil {
+		t.Stop()
+		println("cancel", d.Name, d.index)
+	}
+	t = time.NewTimer(time.Duration(conf.Delay * time.Microsecond))
+	d.timer = t
+	for {
+		<-t.C
+		t.Stop()
+		d.timer = nil
+		mergeGroup(d)
+		return
+	}
 }
 
 type Conf struct {
-	List []*WatchData
+	Delay time.Duration
+	List  []*WatchData
 }
+
+var conf Conf
+
+var watchDataIndex = 0
+var confName = "config.json"
 
 func main() {
 	run()
 }
 
 func run() {
-	configBytes, err := ioutil.ReadFile("config.json")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var conf Conf
-	err = json.Unmarshal(configBytes, &conf)
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, d := range conf.List {
-		go watch(d)
-	}
+	go watchConfig()
+	go load()
+	//
+	//ticker := time.NewTicker(time.Second * 3)
+	//go func() {
+	//	for _ = range ticker.C {
+	//		go finishOld()
+	//		go load()
+	//	}
+	//}()
 	select {}
 }
-func watch(data *WatchData) {
 
+func load() {
+	configBytes, err := ioutil.ReadFile(confName)
+	if err != nil {
+		println("read config file error", err.Error(), "wait for config change next time")
+		go reload()
+		return
+	}
+	err = json.Unmarshal(configBytes, &conf)
+	if err != nil {
+		println("unmarshal config file error", err.Error(), "wait for config change next time", string(configBytes))
+		go reload()
+		return
+	}
+	for _, d := range conf.List {
+		d.terminted = false
+		d.finish = make(chan bool)
+		watchDataIndex++
+		println("carete", d.Name, watchDataIndex)
+		d.index = watchDataIndex
+		go watch(d)
+	}
+}
+func watchConfig() {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		panic(err)
+	}
+	watcher.Add(confName)
+	for {
+		select {
+		case event, ok := <-watcher.Events:
+			if !ok {
+				println("config watcher not ok")
+				continue
+			}
+			if event.Op&fsnotify.Write != fsnotify.Write {
+				continue
+			}
+			go finishOld()
+			go load()
+		}
+	}
+}
+
+func finishOld() {
+	for _, d := range conf.List {
+		_, ok := <-d.finish
+		if ok {
+			d.finish <- true
+			close(d.finish)
+		}
+	}
+}
+func reload() {
+	<-time.NewTimer(time.Second * 1).C
+	load()
+}
+func watch(data *WatchData) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
 	}
+	data.watcher = watcher
 	for _, w := range data.WatchList {
 		for _, f := range w.Files {
 			watcher.Add(f)
@@ -60,21 +146,57 @@ func watch(data *WatchData) {
 			watcher.Add(f)
 		}
 	}
+
+	mergeGroup(data)
 	for {
 		select {
+		case <-data.finish:
+			if data.terminted {
+				println("finish yet", data.Name, data.index)
+			}
+			tryClose(data.finish)
+			//_, o := <-data.finish
+			//if o {
+			//	close(data.finish)
+			//}
+			data.terminted = true
+			println("finish", data.Name, data.index)
+			err := watcher.Close()
+			if err != nil {
+				printError(err)
+			}
+			return
 		case event, ok := <-watcher.Events:
 			if !ok {
-				return
+				continue
 			}
 			if event.Op&fsnotify.Write != fsnotify.Write {
 				continue
 			}
-			mergeGroup(data)
+			go data.later()
 		}
 	}
 }
 
+func tryClose(c chan bool) {
+	_, o := <-c
+	if o {
+		close(c)
+	}
+}
 func mergeGroup(data *WatchData) {
+	println("merge group", data.Name, data.index)
+	if data.terminted {
+		println("live", data.Name, data.index)
+		w := data.watcher
+		if w != nil {
+			e := w.Close()
+			if e != nil {
+				println("eeee", e)
+			}
+		}
+		return
+	}
 	out := make(map[string]interface{})
 	for _, w := range data.WatchList {
 		for _, file := range w.Files {
@@ -102,12 +224,16 @@ func mergeGroup(data *WatchData) {
 			}
 		}
 	}
-	bs, err := json.Marshal(out)
+	bf := bytes.NewBuffer([]byte{})
+	jsonEncoder := json.NewEncoder(bf)
+	jsonEncoder.SetIndent("", "  ")
+	jsonEncoder.SetEscapeHTML(false)
+	err := jsonEncoder.Encode(out)
 	if err != nil {
 		printError(err)
 		return
 	}
-	err = os.WriteFile(data.Output, bs, 0644)
+	err = os.WriteFile(data.Output, []byte(bf.String()), 0644)
 	if err != nil {
 		printError(err)
 	}

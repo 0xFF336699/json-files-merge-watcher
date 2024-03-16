@@ -1,9 +1,8 @@
 {
-  "folders": [
-    "C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales"
-  ],
+  "delay": 500,
   "list": [
     {
+      "name": "global-zh-CN",
       "suffix": ".json",
       "output": "C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales\\zh-CN.json",
       "watchList": [
@@ -14,12 +13,35 @@
       ]
     },
     {
+      "name": "global-en",
       "suffix": ".json",
       "output": "C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales\\en.json",
       "watchList": [
         {
           "files": [],
           "folders": ["C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales\\en"]
+        }
+      ]
+    },
+    {
+      "name": "index-zh-CN",
+      "suffix": ".json",
+      "output": "C:\\work\\android-droid\\html\\droid-website\\src\\htmls\\index\\i18n\\locales\\zh-CN.json",
+      "watchList": [
+        {
+          "files": [],
+          "folders": ["C:\\work\\android-droid\\html\\droid-website\\src\\htmls\\index\\i18n\\locales\\zh-CN"]
+        }
+      ]
+    },
+    {
+      "name": "index-en",
+      "suffix": ".json",
+      "output": "C:\\work\\android-droid\\html\\droid-website\\src\\htmls\\index\\i18n\\locales\\en.json",
+      "watchList": [
+        {
+          "files": [],
+          "folders": ["C:\\work\\android-droid\\html\\droid-website\\src\\htmls\\index\\i18n\\locales\\en"]
         }
       ]
     }
