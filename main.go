@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/fsnotify/fsnotify"
+	"io/fs"
 	"io/ioutil"
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -143,7 +145,7 @@ func watch(data *WatchData) {
 			watcher.Add(f)
 		}
 		for _, f := range w.Folders {
-			watcher.Add(f)
+			watchPath(f, watcher)
 		}
 	}
 
@@ -155,10 +157,6 @@ func watch(data *WatchData) {
 				println("finish yet", data.Name, data.index)
 			}
 			tryClose(data.finish)
-			//_, o := <-data.finish
-			//if o {
-			//	close(data.finish)
-			//}
 			data.terminted = true
 			println("finish", data.Name, data.index)
 			err := watcher.Close()
@@ -170,14 +168,40 @@ func watch(data *WatchData) {
 			if !ok {
 				continue
 			}
-			if event.Op&fsnotify.Write != fsnotify.Write {
+			isCreate := event.Op&fsnotify.Create == fsnotify.Create
+			isRename := event.Op&fsnotify.Rename == fsnotify.Rename
+			isWrite := event.Op&fsnotify.Write == fsnotify.Write
+			isDelete := event.Op&fsnotify.Remove == fsnotify.Remove
+			if !isCreate && !isRename && !isWrite && !isDelete {
 				continue
+			}
+			if (isCreate || isRename) && isDir(event.Name) {
+				watchPath(event.Name, watcher)
 			}
 			go data.later()
 		}
 	}
 }
-
+func isDir(path string) bool {
+	s, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return s.IsDir()
+}
+func watchPath(p string, w *fsnotify.Watcher) (err error) {
+	w.Add(p)
+	filepath.Walk(p, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() == false || p == path {
+			return nil
+		}
+		return watchPath(path, w)
+	})
+	return
+}
 func tryClose(c chan bool) {
 	_, o := <-c
 	if o {
@@ -206,22 +230,7 @@ func mergeGroup(data *WatchData) {
 			}
 		}
 		for _, folder := range w.Folders {
-			l, err := os.ReadDir(folder)
-			if err != nil {
-				printError(err)
-				return
-			}
-			for _, f := range l {
-				name := f.Name()
-				if strings.HasSuffix(name, data.Suffix) == false {
-					continue
-				}
-				file := path.Join(folder, name)
-				if err = mergeFile(out, file); err != nil {
-					printError(err)
-					return
-				}
-			}
+			mergeFolder(data.Suffix, folder, out)
 		}
 	}
 	bf := bytes.NewBuffer([]byte{})
@@ -237,6 +246,29 @@ func mergeGroup(data *WatchData) {
 	if err != nil {
 		printError(err)
 	}
+}
+
+func mergeFolder(suffix, folder string, out map[string]interface{}) (err error) {
+	l, err := os.ReadDir(folder)
+	if err != nil {
+		printError(err)
+		return
+	}
+	for _, f := range l {
+		name := f.Name()
+		file := path.Join(folder, name)
+		if isDir(file) {
+			mergeFolder(suffix, file, out)
+		}
+		if strings.HasSuffix(name, suffix) == false {
+			continue
+		}
+		if err = mergeFile(out, file); err != nil {
+			printError(err)
+			return
+		}
+	}
+	return
 }
 
 func mergeFile(out map[string]interface{}, file string) (err error) {
