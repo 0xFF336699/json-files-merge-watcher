@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -21,15 +22,17 @@ type WatchList struct {
 	Folders []string
 }
 type WatchData struct {
-	Name      string
-	Output    string
-	Suffix    string
-	WatchList []*WatchList
-	finish    chan bool
-	index     int
-	terminted bool
-	timer     *time.Timer
-	watcher   *fsnotify.Watcher
+	Name              string
+	Output            string
+	TsInterfaceOutput string
+	TsInterfaceName   string
+	Suffix            string
+	WatchList         []*WatchList
+	finish            chan bool
+	index             int
+	terminted         bool
+	timer             *time.Timer
+	watcher           *fsnotify.Watcher
 }
 
 func (d *WatchData) later() {
@@ -66,14 +69,6 @@ func main() {
 func run() {
 	go watchConfig()
 	go load()
-	//
-	//ticker := time.NewTicker(time.Second * 3)
-	//go func() {
-	//	for _ = range ticker.C {
-	//		go finishOld()
-	//		go load()
-	//	}
-	//}()
 	select {}
 }
 
@@ -94,7 +89,6 @@ func load() {
 		d.terminted = false
 		d.finish = make(chan bool)
 		watchDataIndex++
-		println("carete", d.Name, watchDataIndex)
 		d.index = watchDataIndex
 		go watch(d)
 	}
@@ -216,7 +210,7 @@ func mergeGroup(data *WatchData) {
 		if w != nil {
 			e := w.Close()
 			if e != nil {
-				println("eeee", e)
+				println("mergeGroup watcher close error", e)
 			}
 		}
 		return
@@ -242,7 +236,29 @@ func mergeGroup(data *WatchData) {
 		printError(err)
 		return
 	}
-	err = os.WriteFile(data.Output, []byte(bf.String()), 0644)
+	//err = os.WriteFile(data.Output, []byte(bf.String()), 0644)
+	err = os.WriteFile(data.Output, bf.Bytes(), 0644)
+	if err != nil {
+		printError(err)
+	}
+	c := 0
+	if len(data.TsInterfaceOutput) > 0 {
+		c++
+	}
+	if len(data.TsInterfaceName) > 0 {
+		c++
+	}
+	if c == 0 {
+		return
+	}
+	if c == 1 {
+		println("ts interface output or name not set")
+	}
+	s := bf.String()
+	r := regexp.MustCompile(`(: ".*")`)
+	res := r.ReplaceAllString(s, `:string`)
+	o := `export interface ` + data.TsInterfaceName + res
+	err = os.WriteFile(data.TsInterfaceOutput, []byte(o), 0644)
 	if err != nil {
 		printError(err)
 	}

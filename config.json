@@ -5,6 +5,8 @@
       "name": "global-zh-CN",
       "suffix": ".json",
       "output": "C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales\\zh-CN.json",
+      "tsInterfaceOutput": "C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales\\zh-CN.interface.ts",
+      "tsInterfaceName": "IGlobalI18n",
       "watchList": [
         {
           "files": [],
@@ -27,6 +29,8 @@
       "name": "index-zh-CN",
       "suffix": ".json",
       "output": "C:\\work\\android-droid\\html\\droid-website\\src\\htmls\\index\\i18n\\locales\\zh-CN.json",
+      "tsInterfaceOutput": "C:\\work\\android-droid\\html\\droid-website\\src\\htmls\\index\\i18n\\locales\\zh-CN.interface.ts",
+      "tsInterfaceName": "IIndexI18n",
       "watchList": [
         {
           "files": [],
