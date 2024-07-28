@@ -21,20 +21,40 @@ type WatchList struct {
 	Files   []string
 	Folders []string
 }
+
+const (
+	FolderTypeLocales     = "locales"
+	FolderTypeSingle      = "single" // default
+	KeyTypeJoinFolderFile = "joinFolderFile"
+	KeyTypeOriginal       = "original" // default
+)
+
 type WatchData struct {
+	FolderType        string
+	KeyType           string
 	Name              string
 	Output            string
 	TsInterfaceOutput string
 	TsInterfaceName   string
 	Suffix            string
+	KeyOutput         string
+	KeyValueName      string
+	KeyFlatten        bool
 	WatchList         []*WatchList
 	finish            chan bool
 	index             int
 	terminted         bool
 	timer             *time.Timer
 	watcher           *fsnotify.Watcher
+	children          []*WatchData
 }
 
+func (w *WatchData) onChildChange() {
+	if w.children == nil {
+		return
+	}
+
+}
 func (d *WatchData) later() {
 	t := d.timer
 	if t != nil {
@@ -86,12 +106,60 @@ func load() {
 		return
 	}
 	for _, d := range conf.List {
-		d.terminted = false
-		d.finish = make(chan bool)
-		watchDataIndex++
-		d.index = watchDataIndex
-		go watch(d)
+		switch d.FolderType {
+		case FolderTypeLocales:
+			runWatchLocales(d)
+			break
+		case FolderTypeSingle:
+			runWatchData(d)
+			break
+		default:
+			runWatchData(d)
+		}
+		//d.terminted = false
+		//d.finish = make(chan bool)
+		//watchDataIndex++
+		//d.index = watchDataIndex
+		//go watch(d)
 	}
+}
+
+func runWatchLocales(d *WatchData) {
+	files, _ := ioutil.ReadDir(d.WatchList[0].Folders[0])
+	for i := 0; i < len(files); i++ {
+		f := files[i]
+		if !f.IsDir() {
+			continue
+		}
+		output := path.Join(d.Output, f.Name()+".json")
+		ts := path.Join(d.Output, f.Name()+".i18n.interface.ts")
+		watchList := &WatchList{
+			Files:   []string{},
+			Folders: []string{path.Join(d.Output, f.Name())},
+		}
+		data := &WatchData{
+			FolderType:        "",
+			Name:              "",
+			Output:            output,
+			TsInterfaceOutput: ts,
+			TsInterfaceName:   "II18n" + f.Name(),
+			Suffix:            ".json",
+			WatchList:         []*WatchList{watchList},
+			finish:            nil,
+			index:             0,
+			terminted:         false,
+			timer:             nil,
+			watcher:           nil,
+		}
+		runWatchData(data)
+	}
+}
+func runWatchData(d *WatchData) {
+	d.terminted = false
+	d.finish = make(chan bool)
+	watchDataIndex++
+	d.index = watchDataIndex
+	go watch(d)
 }
 func watchConfig() {
 	watcher, err := fsnotify.NewWatcher()
@@ -117,10 +185,22 @@ func watchConfig() {
 
 func finishOld() {
 	for _, d := range conf.List {
-		_, ok := <-d.finish
-		if ok {
-			d.finish <- true
-			close(d.finish)
+		if d.finish != nil {
+			_, ok := <-d.finish
+			if ok {
+				d.finish <- true
+				close(d.finish)
+			}
+		}
+		if d.children == nil {
+			continue
+		}
+		for _, c := range d.children {
+			_, ok := <-c.finish
+			if ok {
+				c.finish <- true
+				close(c.finish)
+			}
 		}
 	}
 }
@@ -218,13 +298,13 @@ func mergeGroup(data *WatchData) {
 	out := make(map[string]interface{})
 	for _, w := range data.WatchList {
 		for _, file := range w.Files {
-			if err := mergeFile(out, file); err != nil {
+			if err := mergeFile(out, file, data.KeyType); err != nil {
 				printError(err)
 				return
 			}
 		}
 		for _, folder := range w.Folders {
-			mergeFolder(data.Suffix, folder, out)
+			mergeFolder(data.Suffix, folder, data.KeyType, out)
 		}
 	}
 	bf := bytes.NewBuffer([]byte{})
@@ -255,16 +335,28 @@ func mergeGroup(data *WatchData) {
 		println("ts interface output or name not set")
 	}
 	s := bf.String()
+	exportInterface(s, data.TsInterfaceName, data.TsInterfaceOutput)
+	checkKeysOutput(out, data)
+	data.onChildChange()
+	//r := regexp.MustCompile(`(: ".*")`)
+	//res := r.ReplaceAllString(s, `:string`)
+	//o := `export interface ` + data.TsInterfaceName + res
+	//err = os.WriteFile(data.TsInterfaceOutput, []byte(o), 0644)
+	//if err != nil {
+	//	printError(err)
+	//}
+}
+
+func exportInterface(contentStr, interfaceName, outputPath string) {
 	r := regexp.MustCompile(`(: ".*")`)
-	res := r.ReplaceAllString(s, `:string`)
-	o := `export interface ` + data.TsInterfaceName + res
-	err = os.WriteFile(data.TsInterfaceOutput, []byte(o), 0644)
+	res := r.ReplaceAllString(contentStr, `:string`)
+	o := `export interface ` + interfaceName + res
+	err := os.WriteFile(outputPath, []byte(o), 0644)
 	if err != nil {
 		printError(err)
 	}
 }
-
-func mergeFolder(suffix, folder string, out map[string]interface{}) (err error) {
+func mergeFolder(suffix, folder, keyType string, out map[string]interface{}) (err error) {
 	l, err := os.ReadDir(folder)
 	if err != nil {
 		printError(err)
@@ -274,12 +366,14 @@ func mergeFolder(suffix, folder string, out map[string]interface{}) (err error) 
 		name := f.Name()
 		file := path.Join(folder, name)
 		if isDir(file) {
-			mergeFolder(suffix, file, out)
+			parent := getSubMap(filepath.Base(file), keyType, out)
+			mergeFolder(suffix, file, keyType, parent)
 		}
 		if strings.HasSuffix(name, suffix) == false {
 			continue
 		}
-		if err = mergeFile(out, file); err != nil {
+		//fileMap := getSubMap(name, keyType, out)
+		if err = mergeFile(out, file, keyType); err != nil {
 			printError(err)
 			return
 		}
@@ -287,8 +381,37 @@ func mergeFolder(suffix, folder string, out map[string]interface{}) (err error) 
 	return
 }
 
-func mergeFile(out map[string]interface{}, file string) (err error) {
+func getSubMap(key, keyType string, parent map[string]interface{}) (m map[string]interface{}) {
+	switch keyType {
+	case KeyTypeJoinFolderFile:
+		return getSubMapByKey(key, parent)
+	case KeyTypeOriginal:
+		return parent
+	default:
+		return parent
+	}
+}
+func getSubMapByKey(key string, parent map[string]interface{}) (m map[string]interface{}) {
+	value, ok := parent[key]
+	var isMap bool
+	if ok {
+		m, isMap = mapify(value)
+		if !isMap {
+			//error
+		}
+	}
+	if m == nil {
+		m = map[string]interface{}{}
+	}
+	parent[key] = m
+	return m
+}
+func mergeFile(out map[string]interface{}, file, keyType string) (err error) {
 	bs, err := os.ReadFile(file)
+	base := filepath.Base(file)
+	name := base[0:strings.LastIndex(base, ".")]
+	container := getSubMap(name, keyType, out)
+	println(base, name)
 	if len(bs) == 0 {
 		err = errors.New("empty file")
 	}
@@ -300,7 +423,7 @@ func mergeFile(out map[string]interface{}, file string) (err error) {
 	if err != nil {
 		return
 	}
-	merge(out, m)
+	merge(container, m)
 	return
 }
 func printError(err error) {
@@ -330,4 +453,52 @@ func mapify(i interface{}) (map[string]interface{}, bool) {
 		return m, true
 	}
 	return map[string]interface{}{}, false
+}
+
+func checkKeysOutput(m map[string]interface{}, data *WatchData) {
+	if len(data.KeyOutput) == 0 {
+		return
+	}
+	name := data.KeyValueName
+	if len(name) == 0 {
+		name = "i18nKeys"
+	}
+	km := map[string]string{}
+	setMapKey(m, km, "")
+	var i interface{} = m
+	if data.KeyFlatten {
+		i = km
+	}
+	b, e := json.Marshal(i)
+	if e != nil {
+		printError(e)
+		return
+	}
+	o := `export const ` + name + " = " + string(b)
+	e = os.WriteFile(data.KeyOutput, []byte(o), 0644)
+	if e != nil {
+		printError(e)
+	}
+}
+func setMapKey(m map[string]interface{}, km map[string]string, parent string) {
+	for k, v := range m {
+		p := parent
+		if len(p) > 0 {
+			p = p + "."
+		}
+		p = p + k
+		switch v.(type) {
+		case string:
+			m[k] = p
+			km[p] = p
+			break
+		case map[string]interface{}:
+			if mm, ok := v.(map[string]interface{}); ok {
+				setMapKey(mm, km, p)
+			}
+			break
+		default:
+			panic("xx")
+		}
+	}
 }

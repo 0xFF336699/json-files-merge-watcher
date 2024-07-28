@@ -2,50 +2,19 @@
   "delay": 500,
   "list": [
     {
-      "name": "global-zh-CN",
+      "name": "openInNewTabel-index-zh-CN",
       "suffix": ".json",
-      "output": "C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales\\zh-CN.json",
-      "tsInterfaceOutput": "C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales\\zh-CN.interface.ts",
-      "tsInterfaceName": "IGlobalI18n",
+      "keyType": "joinFolderFile",
+      "output": "C:\\work\\chrome-extenstions\\new-tab-link\\pages\\options\\src\\i18n\\locales\\zh-CN2.json",
+      "tsInterfaceOutput": "C:\\work\\chrome-extenstions\\new-tab-link\\pages\\options\\src\\i18n\\locales\\i18n2.interface.ts",
+      "tsInterfaceName": "II18n2",
+      "keyOutput":"C:\\work\\chrome-extenstions\\new-tab-link\\pages\\options\\src\\i18n\\locales\\i18n.keys.ts",
+      "keyValueName":"i18nKeys",
+      "keyFlatten":true,
       "watchList": [
         {
           "files": [],
-          "folders": ["C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales\\zh-CN"]
-        }
-      ]
-    },
-    {
-      "name": "global-en",
-      "suffix": ".json",
-      "output": "C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales\\en.json",
-      "watchList": [
-        {
-          "files": [],
-          "folders": ["C:\\work\\android-droid\\html\\droid-website\\src\\i18n\\locales\\en"]
-        }
-      ]
-    },
-    {
-      "name": "index-zh-CN",
-      "suffix": ".json",
-      "output": "C:\\work\\android-droid\\html\\droid-website\\src\\htmls\\index\\i18n\\locales\\zh-CN.json",
-      "tsInterfaceOutput": "C:\\work\\android-droid\\html\\droid-website\\src\\htmls\\index\\i18n\\locales\\zh-CN.interface.ts",
-      "tsInterfaceName": "IIndexI18n",
-      "watchList": [
-        {
-          "files": [],
-          "folders": ["C:\\work\\android-droid\\html\\droid-website\\src\\htmls\\index\\i18n\\locales\\zh-CN"]
-        }
-      ]
-    },
-    {
-      "name": "index-en",
-      "suffix": ".json",
-      "output": "C:\\work\\android-droid\\html\\droid-website\\src\\htmls\\index\\i18n\\locales\\en.json",
-      "watchList": [
-        {
-          "files": [],
-          "folders": ["C:\\work\\android-droid\\html\\droid-website\\src\\htmls\\index\\i18n\\locales\\en"]
+          "folders": ["C:\\work\\chrome-extenstions\\new-tab-link\\pages\\options\\src\\i18n\\locales\\zh_CN"]
         }
       ]
     }
