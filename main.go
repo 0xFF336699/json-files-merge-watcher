@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"github.com/fsnotify/fsnotify"
 	"io/fs"
 	"io/ioutil"
 	"log"
@@ -15,6 +14,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 type WatchList struct {
@@ -456,6 +457,17 @@ func mapify(i interface{}) (map[string]interface{}, bool) {
 }
 
 func checkKeysOutput(m map[string]interface{}, data *WatchData) {
+	bs, e := json.Marshal(m)
+	if e != nil {
+		printError(e)
+		return
+	}
+	out := map[string]interface{}{}
+	e = json.Unmarshal(bs, &out)
+	if e != nil {
+		printError(e)
+		return
+	}
 	if len(data.KeyOutput) == 0 {
 		return
 	}
@@ -464,12 +476,12 @@ func checkKeysOutput(m map[string]interface{}, data *WatchData) {
 		name = "i18nKeys"
 	}
 	km := map[string]string{}
-	setMapKey(m, km, "")
-	var i interface{} = m
+	setMapKey(out, km, "")
+	var i interface{} = out
 	if data.KeyFlatten {
 		i = km
 	}
-	b, e := json.Marshal(i)
+	b, e := json.MarshalIndent(i, "", "  ")
 	if e != nil {
 		printError(e)
 		return

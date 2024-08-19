@@ -5,16 +5,16 @@
       "name": "openInNewTabel-index-zh-CN",
       "suffix": ".json",
       "keyType": "joinFolderFile",
-      "output": "C:\\work\\chrome-extenstions\\new-tab-link\\pages\\options\\src\\i18n\\locales\\zh-CN2.json",
-      "tsInterfaceOutput": "C:\\work\\chrome-extenstions\\new-tab-link\\pages\\options\\src\\i18n\\locales\\i18n2.interface.ts",
-      "tsInterfaceName": "II18n2",
+      "output": "C:\\work\\chrome-extenstions\\new-tab-link\\i18n\\pages\\options\\src\\zh-CN.json",
+      "tsInterfaceOutput": "C:\\work\\chrome-extenstions\\new-tab-link\\pages\\options\\src\\i18n\\locales\\i18n.interface.ts",
+      "tsInterfaceName": "II18n",
       "keyOutput":"C:\\work\\chrome-extenstions\\new-tab-link\\pages\\options\\src\\i18n\\locales\\i18n.keys.ts",
       "keyValueName":"i18nKeys",
       "keyFlatten":true,
       "watchList": [
         {
           "files": [],
-          "folders": ["C:\\work\\chrome-extenstions\\new-tab-link\\pages\\options\\src\\i18n\\locales\\zh_CN"]
+          "folders": ["C:\\work\\chrome-extenstions\\new-tab-link\\i18n\\pages\\options\\locales\\zh_CN"]
         }
       ]
     }
